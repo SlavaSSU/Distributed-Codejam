@@ -1,0 +1,252 @@
+#define _CRT_SECURE_NO_WARNINGS
+
+#include "message.h"
+//#include "weird_editor.h"
+#include "todd_and_steven"
+
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <iomanip>
+#include <cstdio>
+
+//#include <cstdint>
+//#include <cstdlib>
+#include <cassert>
+//#include <cctype>
+#include <climits>
+#include <functional>
+#include <numeric>
+#include <algorithm>
+#include <cmath>
+#include <ctime>
+
+#include <string>
+#include <cstring>
+#include <vector>
+#include <set>
+#include <map>
+#include <stack>
+#include <queue>
+#include <list>
+#include <deque>
+#include <unordered_set>
+#include <unordered_map>
+#include <bitset>
+#include <array>
+
+using namespace std;
+
+#define forn(i, n) for(int i = 0; i < int(n); i++)
+#define forn1(i, n) for(int i = 1; i <= int(n); i++)
+#define sz(a) int((a).size())
+#define all(a) (a).begin(), (a).end()
+#define mp make_pair
+#define pb push_back
+#define x first
+#define y second
+
+typedef long long li;
+typedef long double ld;
+typedef pair<int, int> pt;
+
+const int INF = int(1e9);
+const li INF64 = li(1e18);
+const ld PI = acosl(ld(-1));
+const ld EPS = 1e-9;
+
+template <typename T> inline T sqr(const T& x) {
+	return x * x;
+}
+
+template <typename T> inline T abs(const T& x) {
+	return x > 0 ? x : -x;
+}
+
+inline bool inside(int x, int y, int n, int m) {
+	return x >= 0 && x < n && y >= 0 && y < m;
+}
+
+inline int rnd() {
+	return abs(rand() ^ (rand() << 15));
+}
+
+inline int rnd(int n) {
+	assert(n > 0);
+	return rnd() % n;
+}
+
+inline int rnd(int lf, int rg) {
+	return lf + rnd(rg - lf + 1);
+}
+
+inline li rndLL() {
+	return rnd() * 1LL * rnd() + rnd();
+}
+
+const int dx[4] = { -1, 0, +1, 0 };
+const int dy[4] = { 0, +1, 0, -1 };
+
+const int dx8[8] = { -1, -1, 0, +1, +1, +1, 0, -1 };
+const int dy8[8] = { 0, +1, +1, +1, 0, -1, -1, -1 };
+
+const int N = int(3e5) + 555;
+
+int cnts[10];
+int maxPos[11];
+
+const int MOD = INF + 7;
+
+int binPow(int a, int n) {
+	if (n == 0) return 1;
+	if (n & 1) return (a * 1LL * binPow(a, n - 1)) % MOD;
+	int res = binPow(a, n / 2);
+	return (res * 1LL * res) % MOD;
+}
+
+int main() {
+	forn(i, 11) maxPos[i] = -1;
+	int nodes = NumberOfNodes();
+	int myId = MyNodeId();
+
+	
+	int n = GetNumberLength();
+	//li m = GetNumDiners();
+	//GetStackItem(i);
+	int cntNodes = min(n, nodes - 1);
+	vector<li> lens;
+	int mod = n % cntNodes;
+	for (int i = 0; i < cntNodes; i++) {
+		li len = n / cntNodes;
+		if (i < mod) len++;
+		lens.push_back(len);
+	}
+
+	li sum = 0;
+
+	forn(i, sz(lens)) sum += lens[i];
+	assert(sum == n);
+	forn(i, 10) cnts[i] = 0;
+	if (myId == nodes - 1) { //final nod
+
+		for (int dig = 9; dig >= 1; dig--) {
+			int mx = maxPos[dig + 1];
+			forn(i, cntNodes) {
+				Receive(i);
+				int dig = GetInt(i);
+				int cnt = GetInt(i);
+				cnts[dig] += cnt;
+				mx = max(mx, GetInt(i));
+			}
+
+			if (dig != 1) {
+				forn(i, cntNodes) {
+					PutInt(i, mx);
+					Send(i);
+				}
+			}
+
+			maxPos[dig] = mx;
+		}
+
+		int sumLen = 0;
+		forn(i, 10) sumLen += cnts[i];
+
+		const int LIM = 11 * 1000000;
+		int d = 9;
+		//vector<int> v(10, 0);
+		forn(i, cntNodes) {
+			int sz = 0;
+			vector<int> v(10, 0);
+			while (d && sz < LIM) {
+				int can = min(LIM - sz, cnts[d]);
+				sz += can;
+				v[d] += can;
+				cnts[d] -= can;
+				while (d && cnts[d] == 0) d--;
+			}
+
+			if (1) {
+				for (int d = 9; d >= 1; d--) {
+					PutInt(i, v[d]);
+				}
+
+				Send(i);
+			}
+		}
+
+		vector<pair<li, li> > a;
+		forn(i, cntNodes) {
+			Receive(i);
+			int res = GetInt(i);
+			int len = GetInt(i);
+			if (len) a.push_back(mp(res, len));
+		}
+
+		li ans = 0;
+		ans = a[0].x;
+		for (int i = 1; i < sz(a); i++) {
+			ans = (ans * binPow(10, a[i].y) + a[i].x) % MOD;
+		}
+
+		ans = (ans * binPow(10, n - sumLen)) % MOD;
+		cout << ans << endl;
+		return 0;
+	}
+
+	if (myId >= cntNodes) { //useless node
+		return 0;
+	}
+
+	//common node, calc answer and send it to master node
+	li from = 0;
+	for (int i = 0; i < myId; i++) from += lens[i];
+	li to = from + lens[myId] - 1;
+	li needLen = n / cntNodes;
+	if (myId < mod) needLen++;
+	assert(to - from + 1 == needLen);
+	int res = 0;
+	li i = 0;
+	vector<int> v(to - from + 1);
+	for (int i = from; i <= to; i++) v[i - from] = GetDigit(i);
+	//int lf = -1;
+
+	for (int dig = 9; dig >= 1; dig--) {
+		int lf = -1;
+		if (dig == 9) {}
+		else {
+			Receive(nodes - 1);
+			lf = max(lf, GetInt(nodes - 1));
+		}
+
+		int cnt = 0;
+		int lst = lf;
+		for (int i = 0; i < sz(v); i++) if (i + from >= lf + 1) {
+			cnt++;
+			lf = i + from;
+		}
+		PutInt(nodes - 1, dig);
+		PutInt(nodes - 1, cnt);
+		PutInt(nodes - 1, lf);
+		Send(nodes - 1);
+	}
+	vector<int> vv(10, 0);
+	Receive(nodes - 1);
+	int s = 0;
+	int myLen = 0;
+	int ress = 0;
+	for (int d = 9; d >= 1; d--) {
+		forn(i, vv[d]) {
+			ress = (ress * 1LL * 10) % MOD;
+			myLen++;
+		}
+	}
+
+	//if (myLen == 0) return 0;
+	PutInt(nodes - 1, ress);
+	PutInt(nodes - 1, myLen);
+	Send(nodes - 1);
+
+	
+	return 0;
+}
